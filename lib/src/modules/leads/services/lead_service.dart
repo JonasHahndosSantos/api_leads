@@ -17,8 +17,14 @@ class LeadService implements ILeadService{
   }
 
   @override
-  Future<List<LeadDto>> getAll(int limit, int offset) async{
-    return await _repository.getAll(limit, offset);
+  Future<List<LeadDto>> getAll({required int limit, required int offset, String? status, String? interesse, String? fonte,}) async{
+    final list = await _repository.getAll(limit: limit, offset: offset, status: status, interesse: interesse, fonte: fonte );
+
+    return list;
+  }
+
+  Future<Map<String, dynamic>> getCard() async{
+    return _repository.getCard();
   }
   
   

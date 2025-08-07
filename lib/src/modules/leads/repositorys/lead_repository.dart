@@ -1,8 +1,7 @@
 import 'package:api_leads/src/modules/leads/dtos/leads_dto.dart';
-import 'package:api_leads/src/modules/leads/enum/interesse.dart';
-import 'package:api_leads/src/modules/leads/enum/status.dart';
 import 'package:api_leads/src/modules/leads/repositorys/i_lead_repository.dart';
 import 'package:api_leads/src/shared/database/database.dart';
+import 'package:diacritic/diacritic.dart';
 import 'package:vaden/vaden.dart';
 
 @Scope(BindType.instance)
@@ -15,11 +14,50 @@ class LeadRepository implements ILeadRepository{
   LeadRepository(this._database);
 
   @override
-  Future<List<LeadDto>> getAll(int limit, int offset) async {
-     String sql = 'SELECT id_leads_comercial, nome, email, telefone, cnpj, anuncio, meio, status, fonte, interesse, data_hora FROM $_getTableName LIMIT @limit OFFSET @offset';
+  Future<List<LeadDto>> getAll({required int limit, required int offset, String? status, String? interesse, String? fonte,}) async {
+    String sql = 'SELECT id_leads_comercial, nome, email, telefone, cnpj, anuncio, meio, status, fonte, interesse, data_hora, parceiros FROM $_getTableName ';
+    final conditions = <String>[];
+    final parameters = <String, dynamic>{
+      'limit': limit,
+      'offset': offset,
+    };
+    if(status != null){
+      conditions.add('LOWER(status) = @status');
+      parameters['status'] = status;
+    }
+    if(interesse != null){
+      conditions.add('UNACCENT(LOWER(interesse)) = @interesse');
+      parameters['interesse'] = removeDiacritics(interesse).toLowerCase();
+    }
+    if(fonte != null && fonte.isNotEmpty){
+      conditions.add('fonte = @fonte');
+      parameters['fonte'] = fonte;
+    }
 
-    final results = await _database.query(sql:  sql, parameters: {'limit': limit, 'offset': offset,});
-     return results.map((e) => fromMap(e)).toList();
+    if(conditions.isNotEmpty){
+      sql += ' WHERE ${conditions.join(' AND ')}';
+    }
+
+    sql += ' ORDER BY data_hora DESC LIMIT @limit OFFSET @offset';
+
+    final results = await _database.query(sql:  sql, parameters: parameters);
+
+    return results.map((e) => fromMap(e)).toList();
+  }
+
+  @override
+  Future<Map<String, dynamic>> getCard() async {
+    String sql = '''
+    SELECT
+      COUNT(CASE WHEN status = 'pendente' THEN 1 END) AS total_ativos,
+      COUNT(CASE WHEN interesse = 'Revenda' THEN 1 END) AS total_revendas,
+      COUNT(CASE WHEN interesse = 'Utilização' THEN 1 END) AS total_utilizacao
+    FROM leads_comercial;
+  ''';
+
+    final results = await _database.query(sql:  sql, parameters: {});
+
+    return results.first;
   }
 
   @override
@@ -31,12 +69,13 @@ class LeadRepository implements ILeadRepository{
   Map<String, dynamic> toMap(LeadDto lead) {
     return {
       'id_leads_comercial': lead.id_leads_comercial,
-      'status': lead.status.value,
-      'interesse': lead.interesse.value,
+      'status': lead.status.displayName,
+      'interesse': lead.interesse.displayName,
+      'parceiros': lead.parceiros,
     };
   }
   LeadDto fromMap(Map<String, dynamic> map) => LeadDto(
-    id_leads_comercial: map['id_leads_comercial'],
+    id_leads_comercial: map['id_leads_comercial'].toString(),
     nome: map['nome'],
     email: map['email'],
     telefone: map['telefone'],
@@ -44,15 +83,10 @@ class LeadRepository implements ILeadRepository{
     anuncio: map['anuncio'],
     meio: map['meio'],
     fonte: map['fonte'],
+    parceiros: map['parceiros'],
     data_hora: map['data_hora'],
-    interesse: Interesse.values.firstWhere(
-        (e) => e.value == map['interesse'],
-      orElse: () => Interesse.utilizacao,
-    ),
-    status: Status.values.firstWhere(
-        (e) => e.value == map['status'],
-      orElse: () => Status.pendente,
-    ),
+    interesse: Interesse.fromName(map['interesse']),
+    status: Status.fromName(map['status']),
   );
 
 }

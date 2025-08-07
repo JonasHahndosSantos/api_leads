@@ -26,19 +26,36 @@ class LeadController {
       summary: 'Busca Leads',
       description: 'Busca os Leads com paginação.'
   )
-  @ApiResponse(200, description: 'Leads Buscados com sucesso', content: ApiContent(type: 'application/json', schema: LeadDto))
+  @ApiResponse(200, description: 'Leads Buscados com sucesso', content: ApiContent(type: 'application/json', schema: List<LeadDto>))
   @ApiResponse(400, description: 'Requisição inválida', content: ApiContent(type: 'application/json'))
   @ApiResponse(401, description: 'Não autorizado', content: ApiContent(type: 'application/json'))
   @ApiResponse(500, description: 'Erro interno do servidor', content: ApiContent(type: 'application/json'))
   @Get()
-  Future<Response> getAll(
+  Future<List<LeadDto>> getAll(
       @Query('page') int? page,
       @Query('pageSize') int? pageSize,
+      @Query('status') String? status,
+      @Query('interesse') String? interesse,
+      @Query('fonte') String? fonte,
       ) async {
     final pageNumber = page ?? 1;
     final size = pageSize ?? 10;
     final offset = (pageNumber-1)*size;
-      final leads = await _service.getAll(size, offset);
-      return Response.ok(leads);
+
+    return await _service.getAll(limit: size, offset: offset, status: status, interesse: interesse, fonte: fonte);
+  }
+
+  @ApiOperation(
+      summary: 'Count de leads',
+      description: 'Contando os leads para os cards.'
+  )
+  @ApiResponse(200, description: 'Leads Buscados com sucesso', content: ApiContent(type: 'application/json'))
+  @ApiResponse(400, description: 'Requisição inválida', content: ApiContent(type: 'application/json'))
+  @ApiResponse(401, description: 'Não autorizado', content: ApiContent(type: 'application/json'))
+  @ApiResponse(500, description: 'Erro interno do servidor', content: ApiContent(type: 'application/json'))
+  @Get('/count')
+  Future<Map<String, dynamic>> getCard() async {
+
+    return await _service.getCard();
   }
 }
