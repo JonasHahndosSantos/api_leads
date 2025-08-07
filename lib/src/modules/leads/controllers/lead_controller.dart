@@ -37,12 +37,13 @@ class LeadController {
       @Query('status') String? status,
       @Query('interesse') String? interesse,
       @Query('fonte') String? fonte,
+      @Query('busca') String? busca,
       ) async {
     final pageNumber = page ?? 1;
     final size = pageSize ?? 10;
     final offset = (pageNumber-1)*size;
 
-    return await _service.getAll(limit: size, offset: offset, status: status, interesse: interesse, fonte: fonte);
+    return await _service.getAll(limit: size, offset: offset, status: status, interesse: interesse, fonte: fonte, busca: busca);
   }
 
   @ApiOperation(
@@ -54,8 +55,17 @@ class LeadController {
   @ApiResponse(401, description: 'Não autorizado', content: ApiContent(type: 'application/json'))
   @ApiResponse(500, description: 'Erro interno do servidor', content: ApiContent(type: 'application/json'))
   @Get('/count')
-  Future<Map<String, dynamic>> getCard() async {
-
-    return await _service.getCard();
+  Future<Map<String, dynamic>> getCard(
+      @Query('status') String status,
+      @Query('interesse') String? interesse,
+      @Query('fonte') String? fonte,
+      @Query('busca') String? busca,
+      ) async {
+    return await _service.getCard(
+      status: status,
+      interesse: interesse,
+      fonte: fonte,
+      busca: busca
+    );
   }
 }

@@ -17,14 +17,15 @@ class LeadService implements ILeadService{
   }
 
   @override
-  Future<List<LeadDto>> getAll({required int limit, required int offset, String? status, String? interesse, String? fonte,}) async{
-    final list = await _repository.getAll(limit: limit, offset: offset, status: status, interesse: interesse, fonte: fonte );
+  Future<List<LeadDto>> getAll({required int limit, required int offset, String? status, String? interesse, String? fonte, String? busca}) async{
+    final list = await _repository.getAll(limit: limit, offset: offset, status: status, interesse: interesse, fonte: fonte, busca: busca );
 
     return list;
   }
 
-  Future<Map<String, dynamic>> getCard() async{
-    return _repository.getCard();
+  @override
+  Future<Map<String, dynamic>> getCard({required String status, String? interesse, String? fonte, String? busca}) async{
+    return _repository.getCard(status: status, interesse: interesse, fonte: fonte, busca: busca);
   }
   
   

@@ -14,15 +14,25 @@ class LeadRepository implements ILeadRepository{
   LeadRepository(this._database);
 
   @override
-  Future<List<LeadDto>> getAll({required int limit, required int offset, String? status, String? interesse, String? fonte,}) async {
+  Future<List<LeadDto>> getAll({required int limit, required int offset, String? status, String? interesse, String? fonte, String? busca}) async {
     String sql = 'SELECT id_leads_comercial, nome, email, telefone, cnpj, anuncio, meio, status, fonte, interesse, data_hora, parceiros FROM $_getTableName ';
     final conditions = <String>[];
     final parameters = <String, dynamic>{
       'limit': limit,
       'offset': offset,
     };
+    if(busca != null && busca.isNotEmpty){
+      final opcoes = ['nome', 'email', 'telefone', 'cnpj', 'anuncio', 'meio', 'fonte', 'interesse', 'parceiros'];
+
+      final searchConditions = opcoes
+          .map((field) => 'UNACCENT(LOWER(COALESCE($field, \'\'))) LIKE @busca')
+          .join(' OR ');
+
+      conditions.add('($searchConditions)');
+      parameters['busca'] = '%${removeDiacritics(busca).toLowerCase()}%';
+    }
     if(status != null){
-      conditions.add('LOWER(status) = @status');
+      conditions.add('UNACCENT(LOWER(status)) = @status');
       parameters['status'] = status;
     }
     if(interesse != null){
@@ -46,16 +56,44 @@ class LeadRepository implements ILeadRepository{
   }
 
   @override
-  Future<Map<String, dynamic>> getCard() async {
+  Future<Map<String, dynamic>> getCard({required String status, String? interesse, String? fonte, String? busca}) async {
     String sql = '''
-    SELECT
-      COUNT(CASE WHEN status = 'pendente' THEN 1 END) AS total_ativos,
-      COUNT(CASE WHEN interesse = 'Revenda' THEN 1 END) AS total_revendas,
-      COUNT(CASE WHEN interesse = 'Utilização' THEN 1 END) AS total_utilizacao
-    FROM leads_comercial;
-  ''';
+  SELECT
+    COUNT(CASE WHEN UNACCENT(LOWER(status)) = @status THEN 1 END) AS total_ativos,
+    COUNT(CASE WHEN UNACCENT(LOWER(interesse)) = 'revenda' AND (UNACCENT(LOWER(status)) = @status) THEN 1 END) AS total_revendas,
+    COUNT(CASE WHEN UNACCENT(LOWER(interesse)) = 'utilizacao' AND (UNACCENT(LOWER(status)) = @status) THEN 1 END) AS total_utilizacao
+  FROM leads_comercial
+''';
+    final parameters = <String, dynamic>{};
+    final conditions = <String>[];
 
-    final results = await _database.query(sql:  sql, parameters: {});
+    conditions.add('UNACCENT(LOWER(status)) = @status');
+    parameters['status'] = removeDiacritics(status).toLowerCase();
+    if(busca != null && busca.isNotEmpty){
+      final opcoes = ['nome', 'email', 'telefone', 'cnpj', 'anuncio', 'meio', 'fonte', 'interesse', 'parceiros'];
+
+      final searchConditions = opcoes
+          .map((field) => 'UNACCENT(LOWER(COALESCE($field, \'\'))) LIKE @busca')
+          .join(' OR ');
+
+      conditions.add('($searchConditions)');
+      parameters['busca'] = '%${removeDiacritics(busca).toLowerCase()}%';
+    }
+
+    if(interesse != null){
+      conditions.add('UNACCENT(LOWER(interesse)) = @interesse');
+      parameters['interesse'] = removeDiacritics(interesse).toLowerCase();
+    }
+    if(fonte != null && fonte.isNotEmpty){
+      conditions.add('fonte = @fonte');
+      parameters['fonte'] = fonte;
+    }
+
+    if(conditions.isNotEmpty){
+      sql += ' WHERE ${conditions.join(' AND ')}';
+    }
+
+    final results = await _database.query(sql:  sql, parameters: parameters);
 
     return results.first;
   }
