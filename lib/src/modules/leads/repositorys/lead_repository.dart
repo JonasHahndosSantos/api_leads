@@ -77,24 +77,33 @@ class LeadRepository implements ILeadRepository {
 
   @override
   Future<Map<String, dynamic>> getCard({required String status, String? interesse, String? fonte, String? busca}) async {
-    String sql = '''
+    // --- Query 1: Contadores principais (apenas com filtro de status) ---
+    String sqlCounters = '''
       SELECT
         COUNT(*) AS total_ativos,
         COUNT(CASE WHEN UNACCENT(LOWER(interesse)) = 'revenda' THEN 1 END) AS total_revendas,
         COUNT(CASE WHEN UNACCENT(LOWER(interesse)) = 'utilizacao' THEN 1 END) AS total_utilizacao
       FROM leads_comercial
+      WHERE UNACCENT(LOWER(status)) = @status
     ''';
+    final counterParameters = {'status': status};
+    final counterResults = await _database.query(sql: sqlCounters, parameters: counterParameters);
 
-    // Chama a MESMA função auxiliar para pegar os filtros
+    final resultsMap = Map<String, dynamic>.from(counterResults.first);
+
+    String sqlPaginationCount = 'SELECT COUNT(*) AS count_pagin FROM leads_comercial';
+
     final filters = _buildFilterClauses(status: status, interesse: interesse, fonte: fonte, busca: busca);
-    final parameters = filters.parameters;
 
     if (filters.conditions.isNotEmpty) {
-      sql += ' WHERE ${filters.conditions.join(' AND ')}';
+      sqlPaginationCount += ' WHERE ${filters.conditions.join(' AND ')}';
     }
 
-    final results = await _database.query(sql: sql, parameters: parameters);
-    return results.first;
+    final paginationResults = await _database.query(sql: sqlPaginationCount, parameters: filters.parameters);
+
+    resultsMap['count_pagin'] = paginationResults.first['count_pagin'];
+
+    return resultsMap;
   }
 
   @override
