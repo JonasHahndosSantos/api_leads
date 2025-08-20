@@ -24,7 +24,7 @@ class LeadRepository implements ILeadRepository {
 
     if (busca != null && busca.isNotEmpty) {
       final fullSearchClauses = <String>[];
-      final opcoesDeTexto = ['nome', 'email', 'telefone', 'anuncio', 'meio', 'fonte', 'interesse', 'parceiros'];
+      final opcoesDeTexto = ['nome', 'email', 'anuncio', 'meio', 'fonte', 'interesse', 'parceiros'];
       fullSearchClauses.add(opcoesDeTexto.map((field) => 'UNACCENT(LOWER(COALESCE($field, \'\'))) LIKE @busca').join(' OR '));
       parameters['busca'] = '%${removeDiacritics(busca).toLowerCase()}%';
 
@@ -77,20 +77,15 @@ class LeadRepository implements ILeadRepository {
 
   @override
   Future<Map<String, dynamic>> getCard({required String status, String? interesse, String? fonte, String? busca}) async {
-    // --- Query 1: Contadores principais (apenas com filtro de status) ---
-    String sqlCounters = '''
+    String sqlGeneralCounters = '''
       SELECT
         COUNT(*) AS total_ativos,
         COUNT(CASE WHEN UNACCENT(LOWER(interesse)) = 'revenda' THEN 1 END) AS total_revendas,
         COUNT(CASE WHEN UNACCENT(LOWER(interesse)) = 'utilizacao' THEN 1 END) AS total_utilizacao
       FROM leads_comercial
-      WHERE UNACCENT(LOWER(status)) = @status
     ''';
-    final counterParameters = {'status': status};
-    final counterResults = await _database.query(sql: sqlCounters, parameters: counterParameters);
-
-    final resultsMap = Map<String, dynamic>.from(counterResults.first);
-
+    final generalCountersResult = await _database.query(sql: sqlGeneralCounters);
+    final resultsMap = Map<String, dynamic>.from(generalCountersResult.first);
     String sqlPaginationCount = 'SELECT COUNT(*) AS count_pagin FROM leads_comercial';
 
     final filters = _buildFilterClauses(status: status, interesse: interesse, fonte: fonte, busca: busca);
@@ -100,7 +95,6 @@ class LeadRepository implements ILeadRepository {
     }
 
     final paginationResults = await _database.query(sql: sqlPaginationCount, parameters: filters.parameters);
-
     resultsMap['count_pagin'] = paginationResults.first['count_pagin'];
 
     return resultsMap;

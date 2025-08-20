@@ -23,7 +23,7 @@ class LeadController {
   }
 
   @ApiOperation(
-      summary: 'Busca Leads',
+      summary: 'Busca Todos os Leads',
       description: 'Busca os Leads com paginação.'
   )
   @ApiResponse(200, description: 'Leads Buscados com sucesso', content: ApiContent(type: 'application/json', schema: List<LeadDto>))
@@ -47,7 +47,7 @@ class LeadController {
   }
 
   @ApiOperation(
-      summary: 'Count de leads',
+      summary: 'Conta todos os leads',
       description: 'Contando os leads para os cards.'
   )
   @ApiResponse(200, description: 'Leads Buscados com sucesso', content: ApiContent(type: 'application/json'))
