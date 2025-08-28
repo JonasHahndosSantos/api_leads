@@ -24,7 +24,7 @@ class LeadRepository implements ILeadRepository {
 
     if (busca != null && busca.isNotEmpty) {
       final fullSearchClauses = <String>[];
-      final opcoesDeTexto = ['nome', 'email', 'anuncio', 'meio', 'fonte', 'interesse', 'parceiros'];
+      final opcoesDeTexto = ['nome', 'email', 'anuncio', 'meio', 'fonte', 'interesse', 'parceiros', 'cidade'];
       fullSearchClauses.add(opcoesDeTexto.map((field) => 'UNACCENT(LOWER(COALESCE($field, \'\'))) LIKE @busca').join(' OR '));
       parameters['busca'] = '%${removeDiacritics(busca).toLowerCase()}%';
 
@@ -48,8 +48,15 @@ class LeadRepository implements ILeadRepository {
       parameters['interesse'] = removeDiacritics(interesse!).toLowerCase();
     }
     if (fonte != null && fonte.isNotEmpty) {
-      conditions.add('fonte = @fonte');
-      parameters['fonte'] = fonte;
+      if(fonte.toLowerCase() == 'outros'){
+        conditions.add("fonte NOT IN (@fonte1, @fonte2, @fonte3)");
+        parameters['fonte1'] = 'Instagram';
+        parameters['fonte2'] = 'Facebook';
+        parameters['fonte3'] = 'Google';
+      } else {
+        conditions.add('fonte = @fonte');
+        parameters['fonte'] = fonte;
+      }
     }
 
     return (conditions: conditions, parameters: parameters);
@@ -57,7 +64,7 @@ class LeadRepository implements ILeadRepository {
 
   @override
   Future<List<LeadDto>> getAll({required int limit, required int offset, String? status, String? interesse, String? fonte, String? busca}) async {
-    String sql = 'SELECT id_leads_comercial, nome, email, telefone, cnpj, anuncio, meio, status, fonte, interesse, data_hora, parceiros FROM $_getTableName ';
+    String sql = 'SELECT id_leads_comercial, nome, email, telefone, cnpj, anuncio, meio, status, fonte, interesse, data_hora, parceiros, cidade FROM $_getTableName ';
 
     final filters = _buildFilterClauses(status: status, interesse: interesse, fonte: fonte, busca: busca);
     final parameters = filters.parameters;
@@ -82,9 +89,9 @@ class LeadRepository implements ILeadRepository {
         COUNT(*) AS total_ativos,
         COUNT(CASE WHEN UNACCENT(LOWER(interesse)) = 'revenda' THEN 1 END) AS total_revendas,
         COUNT(CASE WHEN UNACCENT(LOWER(interesse)) = 'utilizacao' THEN 1 END) AS total_utilizacao
-      FROM leads_comercial
+      FROM leads_comercial WHERE UNACCENT(LOWER(status)) = @status;
     ''';
-    final generalCountersResult = await _database.query(sql: sqlGeneralCounters);
+    final generalCountersResult = await _database.query(sql: sqlGeneralCounters, parameters: {'status': status});
     final resultsMap = Map<String, dynamic>.from(generalCountersResult.first);
     String sqlPaginationCount = 'SELECT COUNT(*) AS count_pagin FROM leads_comercial';
 
@@ -112,6 +119,11 @@ class LeadRepository implements ILeadRepository {
       'status': lead.status.displayName,
       'interesse': lead.interesse.displayName,
       'parceiros': lead.parceiros,
+      'email': lead.email,
+      'nome': lead.nome,
+      'cnpj': lead.cnpj,
+      'telefone': lead.telefone,
+      'cidade': lead.cidade,
     };
   }
   LeadDto fromMap(Map<String, dynamic> map) => LeadDto(
@@ -127,6 +139,7 @@ class LeadRepository implements ILeadRepository {
     data_hora: map['data_hora'],
     interesse: Interesse.fromName(map['interesse']),
     status: Status.fromName(map['status']),
+    cidade: map['cidade'] ,
   );
 
 }
